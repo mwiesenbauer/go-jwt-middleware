@@ -53,7 +53,7 @@ var allowedSigningAlgorithms = map[jose.SignatureAlgorithm]bool{
 }
 
 // New sets up a new Validator with the required keyFunc
-// and signatureAlgorithm as well as custom options.
+// and list of signatureAlgorithms as well as custom options.
 func New(
 	keyFunc func(context.Context) (interface{}, error),
 	signatureAlgorithms []jose.SignatureAlgorithm,
