@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-jose/go-jose/v4"
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -215,7 +215,7 @@ func TestValidator_ValidateToken(t *testing.T) {
 
 			validator, err := New(
 				testCase.keyFunc,
-				testCase.algorithm,
+				[]jose.SignatureAlgorithm{testCase.algorithm},
 				issuer,
 				[]string{audience, "another-audience"},
 				WithCustomClaims(testCase.customClaims),
@@ -247,32 +247,37 @@ func TestNewValidator(t *testing.T) {
 	}
 
 	t.Run("it throws an error when the keyFunc is nil", func(t *testing.T) {
-		_, err := New(nil, algorithm, issuer, []string{audience})
+		_, err := New(nil, []jose.SignatureAlgorithm{algorithm}, issuer, []string{audience})
 		assert.EqualError(t, err, "keyFunc is required but was nil")
 	})
 
 	t.Run("it throws an error when the signature algorithm is empty", func(t *testing.T) {
-		_, err := New(keyFunc, "", issuer, []string{audience})
+		_, err := New(keyFunc, []jose.SignatureAlgorithm{""}, issuer, []string{audience})
 		assert.EqualError(t, err, "unsupported signature algorithm")
 	})
 
 	t.Run("it throws an error when the signature algorithm is unsupported", func(t *testing.T) {
-		_, err := New(keyFunc, "none", issuer, []string{audience})
+		_, err := New(keyFunc, []jose.SignatureAlgorithm{"none"}, issuer, []string{audience})
+		assert.EqualError(t, err, "unsupported signature algorithm")
+	})
+
+	t.Run("it throws an error when one of the signature algorithms is unsupported", func(t *testing.T) {
+		_, err := New(keyFunc, []jose.SignatureAlgorithm{algorithm, "none"}, issuer, []string{audience})
 		assert.EqualError(t, err, "unsupported signature algorithm")
 	})
 
 	t.Run("it throws an error when the issuerURL is empty", func(t *testing.T) {
-		_, err := New(keyFunc, algorithm, "", []string{audience})
+		_, err := New(keyFunc, []jose.SignatureAlgorithm{algorithm}, "", []string{audience})
 		assert.EqualError(t, err, "issuer url is required but was empty")
 	})
 
 	t.Run("it throws an error when the audience is nil", func(t *testing.T) {
-		_, err := New(keyFunc, algorithm, issuer, nil)
+		_, err := New(keyFunc, []jose.SignatureAlgorithm{algorithm}, issuer, nil)
 		assert.EqualError(t, err, "audience is required but was empty")
 	})
 
 	t.Run("it throws an error when the audience is empty", func(t *testing.T) {
-		_, err := New(keyFunc, algorithm, issuer, []string{})
+		_, err := New(keyFunc, []jose.SignatureAlgorithm{algorithm}, issuer, []string{})
 		assert.EqualError(t, err, "audience is required but was empty")
 	})
 }

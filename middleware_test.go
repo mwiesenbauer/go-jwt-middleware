@@ -8,19 +8,20 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/auth0/go-jwt-middleware/v2/validator"
+	"github.com/go-jose/go-jose/v4"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/auth0/go-jwt-middleware/v2/validator"
 )
 
 func Test_CheckJWT(t *testing.T) {
 	const (
-		validToken   = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ0ZXN0SXNzdWVyIiwiYXVkIjoidGVzdEF1ZGllbmNlIn0.PObulEU1cVh-gXvE9p9X7ljwqj_ySgPLOcdyVaWkBZ0"
-		invalidToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ0ZXN0aW5nIn0.7weA6mqBZrF5BFggsul_iB_69E5B1PptE7XIteygHZM"
-		issuer       = "testIssuer"
-		audience     = "testAudience"
+		validHS256Token   = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ0ZXN0SXNzdWVyIiwiYXVkIjoidGVzdEF1ZGllbmNlIn0.PObulEU1cVh-gXvE9p9X7ljwqj_ySgPLOcdyVaWkBZ0"
+		invalidHS256Token = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ0ZXN0aW5nIn0.7weA6mqBZrF5BFggsul_iB_69E5B1PptE7XIteygHZM"
+		validHS384Token   = "Bearer eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ0ZXN0SXNzdWVyIiwiYXVkIjoidGVzdEF1ZGllbmNlIn0.RYY2hU-rU-Hyh4TSPWZPyKdoZ8UpmmqxUsr53sY7qmQtAUXeqcZxv1cgu0Jmpcwe"
+		issuer            = "testIssuer"
+		audience          = "testAudience"
 	)
 
 	tokenClaims := &validator.ValidatedClaims{
@@ -34,7 +35,7 @@ func Test_CheckJWT(t *testing.T) {
 		return []byte("your-256-bit-secret-is-just-enough"), nil
 	}
 
-	jwtValidator, err := validator.New(keyFunc, validator.HS256, issuer, []string{audience})
+	jwtValidator, err := validator.New(keyFunc, []jose.SignatureAlgorithm{validator.HS256, validator.RS256}, issuer, []string{audience})
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -50,7 +51,16 @@ func Test_CheckJWT(t *testing.T) {
 		{
 			name:           "it can successfully validate a token",
 			validateToken:  jwtValidator.ValidateToken,
-			token:          validToken,
+			token:          validHS256Token,
+			method:         http.MethodGet,
+			wantToken:      tokenClaims,
+			wantStatusCode: http.StatusOK,
+			wantBody:       `{"message":"Authenticated."}`,
+		},
+		{
+			name:           "it can successfully validate a token signed with other algorithm",
+			validateToken:  jwtValidator.ValidateToken,
+			token:          validHS256Token,
 			method:         http.MethodGet,
 			wantToken:      tokenClaims,
 			wantStatusCode: http.StatusOK,
@@ -60,7 +70,7 @@ func Test_CheckJWT(t *testing.T) {
 			name:           "it can validate on options",
 			validateToken:  jwtValidator.ValidateToken,
 			method:         http.MethodOptions,
-			token:          validToken,
+			token:          validHS256Token,
 			wantToken:      tokenClaims,
 			wantStatusCode: http.StatusOK,
 			wantBody:       `{"message":"Authenticated."}`,
@@ -82,7 +92,7 @@ func Test_CheckJWT(t *testing.T) {
 		{
 			name:           "it fails to validate an invalid token",
 			validateToken:  jwtValidator.ValidateToken,
-			token:          invalidToken,
+			token:          invalidHS256Token,
 			method:         http.MethodGet,
 			wantStatusCode: http.StatusUnauthorized,
 			wantBody:       `{"message":"JWT is invalid."}`,
@@ -93,7 +103,7 @@ func Test_CheckJWT(t *testing.T) {
 				WithValidateOnOptions(false),
 			},
 			method:         http.MethodOptions,
-			token:          validToken,
+			token:          validHS256Token,
 			wantStatusCode: http.StatusOK,
 			wantBody:       `{"message":"Authenticated."}`,
 		},

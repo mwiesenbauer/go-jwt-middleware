@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-jose/go-jose/v4"
 	"time"
 
+	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 )
 
@@ -29,11 +29,11 @@ const (
 
 // Validator to use with the jose v2 package.
 type Validator struct {
-	keyFunc            func(context.Context) (interface{}, error) // Required.
-	signatureAlgorithm jose.SignatureAlgorithm                    // Required.
-	expectedClaims     jwt.Expected                               // Internal.
-	customClaims       func() CustomClaims                        // Optional.
-	allowedClockSkew   time.Duration                              // Optional.
+	keyFunc             func(context.Context) (interface{}, error) // Required.
+	signatureAlgorithms []jose.SignatureAlgorithm                  // Required.
+	expectedClaims      jwt.Expected                               // Internal.
+	customClaims        func() CustomClaims                        // Optional.
+	allowedClockSkew    time.Duration                              // Optional.
 }
 
 var allowedSigningAlgorithms = map[jose.SignatureAlgorithm]bool{
@@ -56,7 +56,7 @@ var allowedSigningAlgorithms = map[jose.SignatureAlgorithm]bool{
 // and signatureAlgorithm as well as custom options.
 func New(
 	keyFunc func(context.Context) (interface{}, error),
-	signatureAlgorithm jose.SignatureAlgorithm,
+	signatureAlgorithms []jose.SignatureAlgorithm,
 	issuerURL string,
 	audience []string,
 	opts ...Option,
@@ -70,13 +70,15 @@ func New(
 	if len(audience) == 0 {
 		return nil, errors.New("audience is required but was empty")
 	}
-	if _, ok := allowedSigningAlgorithms[signatureAlgorithm]; !ok {
-		return nil, errors.New("unsupported signature algorithm")
+	for _, signatureAlgorithm := range signatureAlgorithms {
+		if _, ok := allowedSigningAlgorithms[signatureAlgorithm]; !ok {
+			return nil, errors.New("unsupported signature algorithm")
+		}
 	}
 
 	v := &Validator{
-		keyFunc:            keyFunc,
-		signatureAlgorithm: signatureAlgorithm,
+		keyFunc:             keyFunc,
+		signatureAlgorithms: signatureAlgorithms,
 		expectedClaims: jwt.Expected{
 			Issuer:      issuerURL,
 			AnyAudience: audience,
@@ -92,12 +94,12 @@ func New(
 
 // ValidateToken validates the passed in JWT using the jose v2 package.
 func (v *Validator) ValidateToken(ctx context.Context, tokenString string) (interface{}, error) {
-	token, err := jwt.ParseSigned(tokenString, []jose.SignatureAlgorithm{v.signatureAlgorithm})
+	token, err := jwt.ParseSigned(tokenString, v.signatureAlgorithms)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse the token: %w", err)
 	}
 
-	if err = validateSigningMethod(string(v.signatureAlgorithm), token.Headers[0].Algorithm); err != nil {
+	if err = validateSigningMethod(v.signatureAlgorithms, token.Headers[0].Algorithm); err != nil {
 		return nil, fmt.Errorf("signing method is invalid: %w", err)
 	}
 
@@ -166,9 +168,16 @@ func validateClaimsWithLeeway(actualClaims jwt.Claims, expected jwt.Expected, le
 	return nil
 }
 
-func validateSigningMethod(validAlg, tokenAlg string) error {
-	if validAlg != tokenAlg {
-		return fmt.Errorf("expected %q signing algorithm but token specified %q", validAlg, tokenAlg)
+func validateSigningMethod(validAlgs []jose.SignatureAlgorithm, tokenAlg string) error {
+	isValidAlg := false
+	for _, alg := range validAlgs {
+		if string(alg) == tokenAlg {
+			isValidAlg = true
+			break
+		}
+	}
+	if !isValidAlg {
+		return fmt.Errorf("expected one of %q signing algorithms but token specified %q", validAlgs, tokenAlg)
 	}
 	return nil
 }
