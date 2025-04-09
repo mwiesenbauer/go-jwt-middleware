@@ -81,7 +81,7 @@ func TestValidator_ValidateToken(t *testing.T) {
 				return []byte("your-256-bit-secret-is-just-enough"), nil
 			},
 			algorithm:     RS256,
-			expectedError: errors.New(`could not parse the token: go-jose/go-jose: unexpected signature algorithm "HS256"; expected ["RS256"]`),
+			expectedError: errors.New(`could not parse the token: unexpected signature algorithm "HS256"; expected ["RS256"]`),
 		},
 		{
 			name:  "it throws an error when it cannot parse the token",
