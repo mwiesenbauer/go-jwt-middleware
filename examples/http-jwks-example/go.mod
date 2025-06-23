@@ -11,7 +11,4 @@ require (
 
 replace github.com/auth0/go-jwt-middleware/v2 => ./../../
 
-require (
-	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/sync v0.13.0 // indirect
-)
+require golang.org/x/sync v0.15.0 // indirect

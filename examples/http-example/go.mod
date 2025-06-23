@@ -10,5 +10,3 @@ require (
 )
 
 replace github.com/auth0/go-jwt-middleware/v2 => ./../../
-
-require golang.org/x/crypto v0.37.0 // indirect
